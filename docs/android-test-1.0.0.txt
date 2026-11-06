@@ -1,0 +1,13 @@
+Concurrent: accepted=22524 dropped=177476 consumed=22524
+PASS: held-block safety, full queue, FIFO, wrap, retune flush, concurrent IQ integrity, drop accounting
+PASS: fragmented commands, device info, forced sc16, tuning, gain, 1 MS/s IQ; tone=35000.02 Hz, samples=6000000
+PASS: live rate change to 500 kS/s, live tuning, stream stop/restart; tone=35000.00 Hz
+STOP clean exit: 0.108 s
+STAT: rate=1000000 rx_samples=4960000 sent_samples=4960000 usb_overflows=0 (+0) queue_dropped_samples=0 queue=0/32 peak_blocks=1 queue_peak_ms=6.9 tcp_waits=0 send_peak_ms=1.9 retune_discarded=0 IQ=16-bit
+Client disconnected: sent_samples=6032000 usb_overflows=0 queue_dropped_samples=0
+Client disconnected: sent_samples=5341184 usb_overflows=0 queue_dropped_samples=11321344
+Client disconnected: sent_samples=2424832 usb_overflows=0 queue_dropped_samples=12976128
+PASS: slow client, bounded queue/drop accounting, reconnect, STOP during TCP backpressure
+EOF clean exit: 0.097 s
+Client disconnected: sent_samples=0 usb_overflows=0 queue_dropped_samples=0
+PASS: managed stdin EOF interrupts partial command and exits cleanly

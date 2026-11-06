@@ -1,0 +1,116 @@
+diff --git a/host/cmake/Modules/UHDBoost.cmake b/host/cmake/Modules/UHDBoost.cmake
+index e8c0aae..df44d1c 100644
+--- a/host/cmake/Modules/UHDBoost.cmake
++++ b/host/cmake/Modules/UHDBoost.cmake
+@@ -163,7 +163,11 @@ if(NOT CMAKE_CXX_STANDARD)
+ endif()
+ 
+ # tell boost the linkage required
+-set(Boost_USE_STATIC_LIBS ${ENABLE_STATIC_LIBS})
++if(ANDROID)
++    set(Boost_USE_STATIC_LIBS ON)
++else()
++    set(Boost_USE_STATIC_LIBS ${ENABLE_STATIC_LIBS})
++endif()
+ # temporarily explicitly enable or disable shared libraries,
+ # build-wise; this can be disabled on a case by case basis for each
+ # library built.
+@@ -173,7 +177,7 @@ if(BUILD_SHARED_LIBS)
+ else()
+     set(BUILD_SHARED_LIBS_SET FALSE)
+ endif()
+-if(ENABLE_STATIC_LIBS)
++if(ENABLE_STATIC_LIBS OR ANDROID)
+     set(BUILD_SHARED_LIBS FALSE)
+ else()
+     set(BUILD_SHARED_LIBS TRUE)
+diff --git a/host/lib/CMakeLists.txt b/host/lib/CMakeLists.txt
+index be26c58..323d809 100644
+--- a/host/lib/CMakeLists.txt
++++ b/host/lib/CMakeLists.txt
+@@ -180,6 +180,10 @@ if(ENABLE_MPMD)
+     list(APPEND libuhd_sources $<TARGET_OBJECTS:uhd_rpclib>)
+ endif()
+ add_library(uhd SHARED ${libuhd_sources})
++if(ANDROID)
++    # Bionic provides pthread functions in libc; there is no separate libpthread.
++    list(REMOVE_ITEM libuhd_libs pthread)
++endif()
+ target_link_libraries(uhd ${Boost_LIBRARIES} ${libuhd_libs})
+ if(ENABLE_DPDK)
+     add_definitions(-DHAVE_DPDK)
+@@ -198,7 +202,7 @@ if(APPLE)
+     target_link_options(uhd PRIVATE "-flat_namespace")
+ endif(APPLE)
+ set_target_properties(uhd PROPERTIES DEFINE_SYMBOL "UHD_DLL_EXPORTS")
+-if(NOT LIBUHDDEV_PKG)
++if(NOT LIBUHDDEV_PKG AND NOT ANDROID)
+     set_target_properties(uhd PROPERTIES SOVERSION "${UHD_ABI_VERSION}")
+     set_target_properties(uhd PROPERTIES VERSION "${UHD_ABI_VERSION}")
+ endif(NOT LIBUHDDEV_PKG)
+diff --git a/host/lib/utils/pathslib.cpp b/host/lib/utils/pathslib.cpp
+index 7854782..eef75e1 100644
+--- a/host/lib/utils/pathslib.cpp
++++ b/host/lib/utils/pathslib.cpp
+@@ -7,7 +7,10 @@
+ #include <uhd/config.hpp>
+ #include <uhdlib/utils/paths.hpp>
+ 
+-#ifdef BOOST_MSVC
++#if defined(__ANDROID__)
++#    include <cstdlib>
++#    include <cctype>
++#elif defined(BOOST_MSVC)
+ #    include <windows.h>
+ #elif defined(__OpenBSD__)
+ #    include <glob.h>
+@@ -20,7 +23,31 @@ std::string uhd::path_expandvars(const std::string& path)
+     if (path.empty()) {
+         return path;
+     }
+-#ifdef BOOST_MSVC
++#if defined(__ANDROID__)
++    // Bionic has no wordexp(). Expand variables and ~/ without invoking a shell.
++    std::string expanded;
++    size_t pos = 0;
++    if (path[0] == '~' && (path.size() == 1 || path[1] == '/')) {
++        const char* home = std::getenv("HOME");
++        expanded = home ? home : "~";
++        pos = 1;
++    }
++    while (pos < path.size()) {
++        if (path[pos] != '$') { expanded += path[pos++]; continue; }
++        const size_t dollar = pos++;
++        const bool braced = pos < path.size() && path[pos] == '{';
++        if (braced) ++pos;
++        const size_t begin = pos;
++        while (pos < path.size() && (std::isalnum(static_cast<unsigned char>(path[pos])) || path[pos] == '_')) ++pos;
++        if (pos == begin || (braced && (pos == path.size() || path[pos] != '}'))) {
++            expanded += path[dollar]; pos = dollar + 1; continue;
++        }
++        const std::string key = path.substr(begin, pos - begin);
++        if (braced) ++pos;
++        if (const char* value = std::getenv(key.c_str())) expanded += value;
++    }
++    return expanded;
++#elif defined(BOOST_MSVC)
+     constexpr size_t max_pathlen = 4096;
+     char result[max_pathlen];
+     const size_t result_len =
+diff --git a/host/lib/utils/platform.cpp b/host/lib/utils/platform.cpp
+index e12f7ad..886044e 100644
+--- a/host/lib/utils/platform.cpp
++++ b/host/lib/utils/platform.cpp
+@@ -41,6 +41,12 @@ uint32_t get_host_id()
+         sizeof(szFileSysName));
+ 
+     return uint32_t(dwSerialNumber);
++#elif defined(__ANDROID__)
++    // gethostid() is not part of Bionic. This ID is used with the process ID.
++    char hostname[256] = {};
++    if (gethostname(hostname, sizeof(hostname) - 1) == 0)
++        return uint32_t(boost::hash<std::string>()(std::string(hostname)));
++    return 0;
+ #else
+     return uint32_t(gethostid());
+ #endif
