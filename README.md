@@ -1,15 +1,16 @@
 # B210 Android Bridge
-
-在已 root 的 Android 手机上，通过 USB 接收 USRP B210，并以本机 SpyServer 向 OnAir 提供 **16-bit IQ**。无需修改 OnAir 或使用 Linux chroot。
+# 注意：本项目需要root权限
+项目由GPT-6.1Sol编写
+在已 root 的 Android 手机上，通过 USB 接收 USRP B210，并在本机上创建 SpyServer  无需使用 Linux chroot。
 
 支持调频、增益和采样率控制、自定义 FPGA 加载、接收统计及日志导出。当前版本 **1.0.0**。
 
 ## 快速开始
 
 1. 从 [Releases](https://github.com/yzs18994078313-byte/b210-android-bridge/releases) 下载并安装 ARM64 APK。
-2. 给 B210 外置供电，通过 USB 3 连接手机，天线接到 **RF A / RX2**。
+2. 建议给 B210 外置供电，通过 USB 3 连接手机，天线接到 **RF A / RX2**。
 3. 打开“B210 本机桥接”，启动服务并授予 root 权限，等待日志显示 `READY`。
-4. 在 OnAir 选择 **SpyServer**，连接 `127.0.0.1:5555`，再选择采样率并调谐。
+4. 在sdr软件中选择 **SpyServer**，连接 `127.0.0.1:5555`，再选择采样率并调谐。
 
 结束接收时，点击 App 或通知中的“停止服务”；退出界面不会停止接收。
 
